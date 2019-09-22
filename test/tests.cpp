@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <jnotify/JNotify.h>
 #include <libnotify/notify.h>
+#include <configuration.h>
 
 TEST(notifications, notification)
 {
@@ -17,5 +18,12 @@ TEST(http, http_get)
     std::cout << html << std::endl;
   });
 
-  jnotify.query_endpoints();
+  jnotify.force_query_endpoints();
+}
+
+TEST(config, config_get)
+{
+  JnConfig config;
+  std::cout << config.try_load(std::string(TEST_RES) + "jnotify.cfg") << std::endl;
+  ASSERT_TRUE(config.is_loaded());
 }

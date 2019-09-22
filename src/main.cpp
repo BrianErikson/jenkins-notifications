@@ -3,5 +3,5 @@
 int main(int argc, char** argv)
 {
   JNotify app;
-  return 0;
+  return app.run();
 }

@@ -1,0 +1,6 @@
+#ifndef CONFIGURATION
+#define CONFIGURATION
+
+#define TEST_RES "@TEST_RES@"
+
+#endif
