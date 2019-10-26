@@ -6,6 +6,10 @@
 #include <memory>
 #include <algorithm>
 #include <iostream>
+#include <ctime>
+#include <chrono>
+#include <rapidjson/document.h>
+#include <sstream>
 
 JNotify::JNotify()
 {
@@ -71,15 +75,43 @@ int JNotify::run()
   }
 
   for (const auto &endpoint : this->config.get_endpoints()) {
-    this->register_url(endpoint.url, [](const std::string &html){
-      // TODO: Some kind of Jenkins-specifc parsing?
+    this->register_url(endpoint.url, [=](const std::string &html) {
+      std::cout << html << std::endl;
+      rapidjson::Document doc;
+      doc.Parse(html.c_str());
+
+      std::stringstream ss;
+      if (doc.IsObject()) {
+        auto last_build = doc["lastBuild"]["number"].GetInt();
+        auto last_failed = doc["lastFailedBuild"]["number"].GetInt();
+        if (last_build == last_failed) {
+          ss << "Build #" << last_build  << " Failed for " << doc["fullDisplayName"].GetString();
+        }
+        else {
+          ss << doc["fullDisplayName"].GetString() << " is good.";
+        }
+      }
+      else {
+        ss << "ERROR: Url is not JSON: " << endpoint.url;
+        std::cerr << "URL " << endpoint.url << " contained: " << '\n' << html << std::endl;
+      }
+      this->emit_notification(ss.str());
     });
   }
 
+  /*
   bool quit = false;
+  std::chrono::time_point clock_last;
+
   while (!quit) {
+    for (const auto &endpoint : this->config.get_endpoints()) {
+      endpoint.poll_rate
+    }
+    clock_last = std::chrono::high_resolution_clock::now();
     // TODO: Query endpoints on an interval specified by poll_rate of each endpoint
   }
+   */
+  this->force_query_endpoints();
 
   return 0;
 }

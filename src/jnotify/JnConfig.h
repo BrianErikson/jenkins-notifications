@@ -15,6 +15,7 @@ public:
   std::vector<JnEndpoint> get_endpoints();
 
 private:
+  static std::string get_home_dir();
   std::string get_config(const std::string &cfg_path = "");
 
   bool loaded = false;

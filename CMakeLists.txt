@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 project(jnotify)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
+find_package(Rapidjson REQUIRED)
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(LIBNOTIFY REQUIRED IMPORTED_TARGET libnotify)
@@ -38,6 +40,7 @@ add_executable(jnotify
 
 target_include_directories(jnotify PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/jnotify
+  ${RAPIDJSON_INCLUDE_DIRS}
 )
 
 target_link_libraries(jnotify

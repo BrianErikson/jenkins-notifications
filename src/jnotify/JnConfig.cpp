@@ -1,52 +1,66 @@
 #include <iostream>
 #include "JnConfig.h"
+#ifdef __linux__
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#endif
 
 using namespace libconfig;
 
 std::string JnConfig::get_config(const std::string &cfg_path)
 {
   std::string err_str;
-  bool success = true;
   if (!cfg_path.empty()) {
     try {
       config.readFile(cfg_path.c_str());
+      return "";
     }
     catch (const ParseException &ex) {
       err_str = ex.what();
-      return err_str;
     }
     catch (const FileIOException &ex) {
-      success = false;
+      err_str = ex.what();
     }
 
-    if (success) {
-      return err_str;
+    return err_str;
+  }
+  else {
+    try {
+      auto path = JnConfig::get_home_dir().append("/.config/jnotify/jnotify.cfg");
+      config.readFile(path.c_str());
+      return "";
     }
-  }
+    catch (const ParseException &ex) {
+      err_str = ex.what();
+    }
+    catch (const FileIOException &ex) {
+      err_str = ex.what();
+    }
 
-  try {
-    config.readFile("~/.config/jnotify/jnotify.cfg");
-  }
-  catch (const ParseException &ex) {
-    err_str = ex.what();
-    return err_str;
-  }
-  catch (const FileIOException &ex) {
-    success = false;
-  }
-
-  if (success) {
-    return err_str;
-  }
-
-  try {
-    config.readFile("/etc/jnotify/jnotify.cfg");
-  }
-  catch (const std::exception &ex) {
-    err_str = ex.what();
+    try {
+      config.readFile("/etc/jnotify/jnotify.cfg");
+      return "";
+    }
+    catch (const ParseException &ex) {
+      err_str = ex.what();
+    }
+    catch (const FileIOException &ex) {
+      err_str = ex.what();
+    }
   }
 
   return err_str;
+}
+
+std::string JnConfig::get_home_dir()
+{
+#ifdef __linux__
+  return getpwuid(getuid())->pw_dir;
+#else
+  std::cerr << "Platform not supported!" std::endl;
+  return "";
+#endif
 }
 
 std::string JnConfig::try_load(const std::string &cfg_path)
@@ -77,7 +91,7 @@ std::string JnConfig::try_load(const std::string &cfg_path)
     return ex.what();
   }
 
-  loaded = true;
+  this->loaded = true;
   return ret_str;
 }
 
