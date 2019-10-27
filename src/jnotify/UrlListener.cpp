@@ -1,12 +1,15 @@
 #include <utility>
 #include <curl/curl.h>
-#include <assert.h>
+#include <cassert>
 #include <iostream>
 #include "UrlListener.h"
 
-UrlListener::UrlListener(std::string url, UlCallback callback) :
-url(std::move(url)),
-callback(std::move(callback))
+using namespace jn;
+
+UrlListener::UrlListener(std::string url, UlCallback callback, int poll_rate) :
+callback(std::move(callback)),
+poll_rate(poll_rate),
+url(std::move(url))
 {
   this->curl_handle = curl_easy_init();
   assert(this->curl_handle);
@@ -14,6 +17,7 @@ callback(std::move(callback))
   curl_easy_setopt(this->curl_handle, CURLOPT_WRITEFUNCTION, &UrlListener::write_callback);
   curl_easy_setopt(this->curl_handle, CURLOPT_WRITEDATA, this->write_buf);
   curl_easy_setopt(this->curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(this->curl_handle, CURLOPT_TIMEOUT, 5L);
 }
 
 UrlListener::~UrlListener()
@@ -35,8 +39,21 @@ std::string UrlListener::try_get()
 {
   CURLcode res = curl_easy_perform(this->curl_handle);
   if (res != CURLE_OK) {
-    std::cerr << "GET failed: " << curl_easy_strerror(res) << " -- for URL " << this->url << std::endl;
+    std::cerr << "GET failed: " << curl_easy_strerror(res) << " for URL " << this->url << std::endl;
   }
 
-  return *this->write_buf;
+  std::string data = *this->write_buf;
+  this->write_buf->clear();
+  return data;
+}
+
+bool UrlListener::execute()
+{
+  auto data = this->try_get();
+  if (data.empty()) {
+    return false;
+  }
+
+  this->callback(data);
+  return true;
 }

@@ -12,7 +12,7 @@ public:
   std::string try_load(const std::string &cfg_path = "");
 
   bool is_loaded();
-  std::vector<JnEndpoint> get_endpoints();
+  std::vector<jn::Endpoint> get_endpoints();
 
 private:
   static std::string get_home_dir();
@@ -20,5 +20,5 @@ private:
 
   bool loaded = false;
   libconfig::Config config;
-  std::vector<JnEndpoint> endpoints;
+  std::vector<jn::Endpoint> endpoints;
 };

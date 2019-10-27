@@ -13,10 +13,10 @@ TEST(notifications, notification)
 TEST(http, http_get)
 {
   JNotify jnotify;
-  jnotify.register_url("http://www.google.com/", [](const std::string &html) {
+  jnotify.register_endpoint("http://www.google.com/", [](const std::string &html) {
     ASSERT_TRUE(!html.empty());
     std::cout << html << std::endl;
-  });
+  }, 1);
 
   jnotify.force_query_endpoints();
 }

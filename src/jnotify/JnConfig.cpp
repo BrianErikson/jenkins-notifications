@@ -2,7 +2,6 @@
 #include "JnConfig.h"
 #ifdef __linux__
 #include <unistd.h>
-#include <sys/types.h>
 #include <pwd.h>
 #endif
 
@@ -76,12 +75,15 @@ std::string JnConfig::try_load(const std::string &cfg_path)
     for (int i = 0; i < config_endpoints.getLength(); i++) {
       const Setting &config_endpoint = config_endpoints[i];
 
-      JnEndpoint endpoint;
+      jn::Endpoint endpoint;
       if (!config_endpoint.lookupValue("url", endpoint.url)) {
         return "endpoint has no url";
       }
       else if (!config_endpoint.lookupValue("poll_rate", endpoint.poll_rate)) {
         return "endpoint has no poll rate";
+      }
+      else if (endpoint.poll_rate == 0) {
+        return "endpoint poll rate must be greater than zero";
       }
 
       this->endpoints.push_back(std::move(endpoint));
@@ -95,7 +97,7 @@ std::string JnConfig::try_load(const std::string &cfg_path)
   return ret_str;
 }
 
-std::vector<JnEndpoint> JnConfig::get_endpoints()
+std::vector<jn::Endpoint> JnConfig::get_endpoints()
 {
   if (!this->loaded) {
     auto res = this->try_load();
