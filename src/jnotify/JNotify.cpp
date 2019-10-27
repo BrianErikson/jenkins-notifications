@@ -11,12 +11,12 @@
 #include <atomic>
 #include <list>
 #include "JNotify.h"
-#include "JnConfig.h"
+#include "Config.h"
 #ifdef __linux__
 #include <csignal>
 #endif
 
-using namespace jn;
+using namespace url_notify;
 
 JNotify::JNotify()
 {
@@ -27,7 +27,7 @@ JNotify::JNotify()
 JNotify::~JNotify()
 {
   // Free curl handles before deinit curl
-  this->url_listeners.erase(this->url_listeners.begin(), this->url_listeners.end());
+  this->hooks.erase(this->hooks.begin(), this->hooks.end());
   notify_uninit();
   curl_global_cleanup();
 }
@@ -55,18 +55,18 @@ bool JNotify::emit_notification(const std::string &message)
   return retval;
 }
 
-SharedUrlListener JNotify::register_endpoint(const std::string &url, const UlCallback &callback,
-                                             unsigned int poll_rate)
+SharedUrlHook JNotify::register_endpoint(const std::string &url, unsigned int poll_rate,
+                                         const url_notify::UrlHookCallback &callback)
 {
-  SharedUrlListener listener = std::make_shared<UrlListener>(url, callback, poll_rate);
-  this->url_listeners.push_back(listener);
+  SharedUrlHook listener = std::make_shared<UrlHook>(url, callback, poll_rate);
+  this->hooks.push_back(listener);
   return listener;
 }
 
 void JNotify::force_query_endpoints()
 {
-  for (auto &listener : this->url_listeners) {
-    listener->execute();
+  for (auto &hook : this->hooks) {
+    hook->execute();
   }
 }
 
@@ -84,23 +84,24 @@ std::vector<Endpoint> JNotify::get_endpoints()
   return this->config.get_endpoints();
 }
 
-TimePoint JNotify::get_next_query_time()
+SharedUrlHook& JNotify::get_next_hook()
 {
-  TimePoint shortest = TimePoint::max();
-  for (const auto &pair : this->timeouts) {
-    if (pair.second < shortest) {
-      shortest = pair.second;
+  SharedUrlHook &shortest = this->hooks[0];
+  for (const auto &hook : this->hooks) {
+    if (hook->get_next_execution() < shortest->get_next_execution()) {
+      shortest = hook;
     }
   }
 
   return shortest;
 }
 
-void JNotify::jenkins_trigger(const std::string &json)
+bool JNotify::jenkins_trigger(const std::string &json)
 {
   rapidjson::Document doc;
   doc.Parse(json.c_str());
 
+  bool err = true;
   std::stringstream ss;
   if (doc.IsObject()) {
     auto last_build = doc["lastBuild"]["number"].GetInt();
@@ -110,12 +111,14 @@ void JNotify::jenkins_trigger(const std::string &json)
     } else {
       ss << "Build #" << last_build << " passed for " << doc["fullDisplayName"].GetString();
     }
+    err = false;
   } else {
-    ss << "ERROR: One of the Jenkins urls provided did not contain json.";
+    ss << "ERROR: One of the Jenkins URLs provided did not contain json.";
     std::cerr << "ERROR: invalid json returned:\n" << json << std::endl;
   }
 
   JNotify::emit_notification(ss.str());
+  return err;
 }
 
 std::atomic<bool> quit = false;
@@ -153,40 +156,25 @@ int JNotify::run()
   }
 
   for (const auto &endpoint : this->config.get_endpoints()) {
-    this->register_endpoint(endpoint.url, &JNotify::jenkins_trigger, endpoint.poll_rate);
+    this->register_endpoint(endpoint.url, endpoint.poll_rate, &JNotify::jenkins_trigger);
   }
 
-  queue_size = this->url_listeners.size();
+  queue_size = this->hooks.size();
 
   this->force_query_endpoints();
   auto now = std::chrono::steady_clock::now();
 
-  for (const auto &listener : this->url_listeners) {
-    this->timeouts[listener] = now + std::chrono::minutes(listener->poll_rate);
-  }
-
-  TimePoint next_query = this->get_next_query_time();
+  SharedUrlHook &next_hook = this->get_next_hook();
   while (!quit) {
-    if (now >= next_query) {
-      auto iter = std::find_if(this->timeouts.begin(), this->timeouts.end(),
-          [&](const auto &pair) {
-            return pair.second == next_query;
-          });
-
-      if (iter != this->timeouts.end()) {
-        auto listener = (*iter).first;
-        listener->execute();
-        (*iter).second = now + std::chrono::minutes(listener->poll_rate);
-      }
-      else {
-        throw std::runtime_error("Timeout requested, but listener not found! Aborting.");
-      }
+    if (now >= next_hook->get_next_execution()) {
+      next_hook->execute();
     }
 
     now = std::chrono::steady_clock::now();
-    next_query = this->get_next_query_time();
-    while (now < next_query) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    next_hook = this->get_next_hook();
+    auto next_exec = next_hook->get_next_execution();
+    while (now < next_exec) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
       now = std::chrono::steady_clock::now();
     }
   }

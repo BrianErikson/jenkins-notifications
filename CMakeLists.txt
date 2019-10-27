@@ -14,10 +14,10 @@ pkg_check_modules(LIBCONFIG REQUIRED IMPORTED_TARGET libconfig++)
 set(APP_SRCS
   src/jnotify/JNotify.cpp
   src/jnotify/JNotify.h
-  src/jnotify/UrlListener.cpp
-  src/jnotify/UrlListener.h
-  src/jnotify/JnConfig.cpp
-  src/jnotify/JnConfig.h
+  src/jnotify/UrlHook.cpp
+  src/jnotify/UrlHook.h
+  src/jnotify/Config.cpp
+  src/jnotify/Config.h
 )
 
 add_library(libjnotify STATIC
