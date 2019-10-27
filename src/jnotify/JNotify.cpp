@@ -108,7 +108,7 @@ void JNotify::jenkins_trigger(const std::string &json)
     if (last_build == last_failed) {
       ss << "Build #" << last_build << " failed for " << doc["fullDisplayName"].GetString();
     } else {
-      ss << doc["fullDisplayName"].GetString() << " has no failed builds.";
+      ss << "Build #" << last_build << " passed for " << doc["fullDisplayName"].GetString();
     }
   } else {
     ss << "ERROR: One of the Jenkins urls provided did not contain json.";
